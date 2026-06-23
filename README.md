@@ -6,32 +6,54 @@
 (Claude Code, Codex, Cursor, OpenCode, Gemini CLI и др.). Все репозитории
 проверены и живые на 2026-06-23.
 
+Кроссплатформенно: **macOS · Linux · Windows · WSL**. Два эквивалентных энтрипоинта —
+`install.sh` (bash) и `install.ps1` (PowerShell), общий каталог и режимы.
+
 ## Быстрый старт
 
+### macOS / Linux / WSL / Git Bash
 ```bash
 git clone https://github.com/agisota/agent-skills-installer.git
-cd agent-skills-installer
-./install.sh            # интерактивно
+cd agent-skills-installer && ./install.sh        # интерактивно
 ```
-
-Или одной строкой (без клона):
-
+Без клона, одной строкой:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/agisota/agent-skills-installer/main/install.sh | bash -s -- --skills
 ```
 
+### Windows (PowerShell 5.1+ / PowerShell 7)
+```powershell
+git clone https://github.com/agisota/agent-skills-installer.git
+cd agent-skills-installer
+./install.ps1 -All
+```
+Без клона, одной строкой:
+```powershell
+$s = irm https://raw.githubusercontent.com/agisota/agent-skills-installer/main/install.ps1
+& ([scriptblock]::Create($s)) -Skills
+```
+> Требуется **Node.js** (для `npx skills`) и **git**. На нативной Windows bash-шаги
+> (`gstack/setup`, ODW-installer) запускаются через **Git Bash** или **WSL** — инсталлер
+> подскажет это и пометит как ручной шаг.
+
+| Платформа | Энтрипоинт | Полная установка |
+|---|---|---|
+| macOS / Linux / WSL / Git Bash | `install.sh` | `./install.sh --all` |
+| Windows (PowerShell) | `install.ps1` | `./install.ps1 -All` |
+
 ## Режимы
 
-| Команда | Что делает |
-|---|---|
-| `./install.sh` | интерактивное меню |
-| `./install.sh --all` | поставить всё (skill + plugin + npm + git + odw) |
-| `./install.sh --skills` | только skill-паки через `npx skills add` |
-| `./install.sh --only thinking-partner,graphify` | только указанные ключи |
-| `./install.sh --list` | показать каталог |
-| `./install.sh --dry-run` | напечатать команды, ничего не выполняя |
+| bash (`install.sh`) | PowerShell (`install.ps1`) | Что делает |
+|---|---|---|
+| `./install.sh` | — *(меню только в bash)* | интерактивное меню |
+| `--all` | `-All` | поставить всё (skill + plugin + npm + git + odw) |
+| `--skills` | `-Skills` | только skill-паки через `npx skills add` |
+| `--only a,b` | `-Only a,b` | только указанные ключи |
+| `--list` | `-List` | показать каталог |
+| `--dry-run` | `-DryRun` | напечатать команды, ничего не выполняя |
+| `--version` | `-Version` | версия |
 
-Флаги комбинируются: `./install.sh --skills --dry-run`.
+Флаги комбинируются: `./install.sh --skills --dry-run` / `./install.ps1 -Skills -DryRun`.
 
 В конце печатается сводка (`установлено / ручных / ошибок`); код выхода `1`, если
 была хоть одна ошибка установки — удобно для CI. Git-паки при повторном запуске
