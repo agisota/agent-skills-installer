@@ -53,7 +53,9 @@ curl -fsSL https://raw.githubusercontent.com/agisota/agent-skills-installer/main
 ## Заметки
 
 - **reverse-skill** — dual-use (реверс/пентест/security). Использовать только в авторизованных задачах.
-- **open-dynamic-workflows** — существует в нескольких реализациях; по умолчанию ставится `xz1220/open-dynamic-workflows`. Альтернативы см. в каталоге.
+- **open-dynamic-workflows** — существует в нескольких реализациях; по умолчанию ставится `xz1220/open-dynamic-workflows` (binary + skill). Альтернативы:
+  - `npx skills add ChaosRealmsAI/open-dynamic-workflow` (odw + pandacode executor)
+  - `npx skills add Suraj1235/open-dynamic-workflows` (daemon, BYO-model)
 - Плагины Claude Code (`superpowers`, `understand-anything`) нельзя поставить из shell — инсталлер выведет нужные `/plugin`-команды.
 
 ## Лицензия

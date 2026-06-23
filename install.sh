@@ -13,6 +13,7 @@
 # Флаги-модификаторы можно комбинировать: ./install.sh --skills --dry-run
 set -uo pipefail
 
+VERSION="1.1.0"
 DRY=0
 RUN_SKILLS=0
 RUN_PLUGINS=0
@@ -186,6 +187,7 @@ while [ $# -gt 0 ]; do
     --only)     ONLY="${2:-}"; shift; RUN_SKILLS=1; RUN_PLUGINS=1; RUN_NPM=1; RUN_GIT=1; RUN_ODW=1; INTERACTIVE=0;;
     --dry-run)  DRY=1;;
     --list)     print_list; exit 0;;
+    --version|-V) echo "agent-skills-installer $VERSION"; exit 0;;
     -h|--help)  usage; exit 0;;
     *) warn "неизвестный флаг: $1"; usage; exit 2;;
   esac
@@ -193,6 +195,16 @@ while [ $# -gt 0 ]; do
 done
 
 # --- интерактивный режим -------------------------------------------------------
+if [ "$INTERACTIVE" = 1 ] && [ ! -t 0 ]; then
+  # запущено через `curl ... | bash` без флагов — меню недоступно (нет tty)
+  warn "Нет интерактивного ввода (запуск через pipe). Укажи режим явно, напр.:"
+  log  "    curl -fsSL .../install.sh | bash -s -- --skills"
+  log  "    curl -fsSL .../install.sh | bash -s -- --all"
+  echo
+  usage
+  exit 2
+fi
+
 if [ "$INTERACTIVE" = 1 ]; then
   echo "agent-skills-installer — что ставим?"
   echo "  1) Всё (--all)"
