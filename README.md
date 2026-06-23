@@ -1,5 +1,7 @@
 # agent-skills-installer
 
+[![ci](https://github.com/agisota/agent-skills-installer/actions/workflows/ci.yml/badge.svg)](https://github.com/agisota/agent-skills-installer/actions/workflows/ci.yml)
+
 Один инсталлер для курируемого набора из **21 пака скиллов** для AI-агентов
 (Claude Code, Codex, Cursor, OpenCode, Gemini CLI и др.). Все репозитории
 проверены и живые на 2026-06-23.
@@ -30,6 +32,10 @@ curl -fsSL https://raw.githubusercontent.com/agisota/agent-skills-installer/main
 | `./install.sh --dry-run` | напечатать команды, ничего не выполняя |
 
 Флаги комбинируются: `./install.sh --skills --dry-run`.
+
+В конце печатается сводка (`установлено / ручных / ошибок`); код выхода `1`, если
+была хоть одна ошибка установки — удобно для CI. Git-паки при повторном запуске
+обновляются через `git pull` (идемпотентно).
 
 ## Типы установки
 

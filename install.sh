@@ -50,9 +50,12 @@ EOF
 
 c_blue=$'\033[34m'; c_grn=$'\033[32m'; c_yel=$'\033[33m'; c_dim=$'\033[2m'; c_rst=$'\033[0m'
 
+# счётчики итога
+N_OK=0; N_MANUAL=0; N_FAIL=0
+SUMMARY=""
+
 log()  { printf '%s\n' "$*"; }
 info() { printf '%s==>%s %s\n' "$c_blue" "$c_rst" "$*"; }
-ok()   { printf '%s ✓ %s%s\n' "$c_grn" "$*" "$c_rst"; }
 warn() { printf '%s ! %s%s\n' "$c_yel" "$*" "$c_rst"; }
 
 run() {
@@ -89,42 +92,87 @@ want() { # ключ нужен? учитывает --only и type-фильтры
   return 1
 }
 
+mark_ok()     { N_OK=$((N_OK+1));         SUMMARY+=$'\n'"  ${c_grn}✓${c_rst} $1"; }
+mark_manual() { N_MANUAL=$((N_MANUAL+1)); SUMMARY+=$'\n'"  ${c_yel}→${c_rst} $1 (ручной шаг)"; }
+mark_fail()   { N_FAIL=$((N_FAIL+1));     SUMMARY+=$'\n'"  ${c_yel}✗${c_rst} $1"; warn "$2"; }
+
 install_one() {
   local key="$1" typ="$2" repo="$3"
   case "$typ" in
     skill)
       info "[skill] $key — npx skills add $repo"
-      run npx -y skills add "$repo" --yes 2>/dev/null \
-        || run npx -y skills add "$repo" \
-        || warn "$key: не удалось через npx skills (поставь вручную: npx skills add $repo)"
+      if [ "$DRY" = 1 ]; then run npx -y skills add "$repo" --yes; mark_ok "$key"; return 0; fi
+      if npx -y skills add "$repo" --yes 2>/dev/null || npx -y skills add "$repo"; then
+        mark_ok "$key"
+      else
+        mark_fail "$key" "$key: не удалось через npx skills (вручную: npx skills add $repo)"
+      fi
       ;;
     plugin)
       info "[plugin] $key — Claude Code marketplace ($repo)"
       warn "Плагины ставятся ВНУТРИ Claude Code. Выполни в сессии:"
       log  "    /plugin marketplace add $repo"
       log  "    /plugin install ${key}"
+      mark_manual "$key"
       ;;
     npm)
       info "[npm] $key — npm install -g $repo"
-      run npm install -g "$repo" || warn "$key: npm install не удался"
-      [ "$key" = "oh-my-claudecode" ] && log "    затем: omc setup"
-      [ "$key" = "oh-my-codex" ]      && log "    затем: omx setup"
+      if [ "$DRY" = 1 ]; then run npm install -g "$repo"; mark_ok "$key"; return 0; fi
+      if npm install -g "$repo"; then
+        mark_ok "$key"
+        [ "$key" = "oh-my-claudecode" ] && log "    затем: omc setup"
+        [ "$key" = "oh-my-codex" ]      && log "    затем: omx setup"
+      else
+        mark_fail "$key" "$key: npm install не удался"
+      fi
       ;;
     git)
       info "[git] $key — clone в ~/.claude/skills/$key"
-      run_sh "git clone --single-branch --depth 1 https://github.com/$repo.git \"\$HOME/.claude/skills/$key\" && cd \"\$HOME/.claude/skills/$key\" && ([ -x ./setup ] && ./setup || true)" \
-        || warn "$key: clone/setup не удался"
+      local dest="$HOME/.claude/skills/$key"
+      if [ -d "$dest/.git" ] && [ "$DRY" != 1 ]; then
+        if run_sh "cd \"$dest\" && git pull --ff-only -q"; then
+          mark_ok "$key (обновлён)"
+        else
+          mark_fail "$key" "$key: git pull не удался"
+        fi
+      elif run_sh "git clone --single-branch --depth 1 https://github.com/$repo.git \"$dest\" && cd \"$dest\" && ([ -x ./setup ] && ./setup || true)"; then
+        mark_ok "$key"
+      else
+        mark_fail "$key" "$key: clone/setup не удался"
+      fi
       ;;
     odw)
       info "[odw] $key — install.sh от $repo"
-      run_sh "curl -fsSL https://raw.githubusercontent.com/$repo/main/scripts/install.sh | sh" \
-        || warn "$key: установка ODW не удалась (см. https://github.com/$repo)"
+      if run_sh "curl -fsSL https://raw.githubusercontent.com/$repo/main/scripts/install.sh | sh"; then
+        mark_ok "$key"
+      else
+        mark_fail "$key" "$key: установка ODW не удалась (см. https://github.com/$repo)"
+      fi
       ;;
   esac
   return 0
 }
 
-usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() {
+  cat <<'USAGE'
+agent-skills-installer — один инсталлер для курируемого набора скиллов AI-агентов.
+
+Usage:
+  ./install.sh                 интерактивно: спросит, что ставить
+  ./install.sh --all           поставить ВСЁ (skill + plugin + npm + git + odw)
+  ./install.sh --skills        только skill-паки (npx skills add)
+  ./install.sh --plugins       только Claude Code плагины (печатает /plugin-команды)
+  ./install.sh --npm           только npm-паки (OMC/OMX)
+  ./install.sh --git           только git-паки (gstack)
+  ./install.sh --odw           только open-dynamic-workflows
+  ./install.sh --only a,b,c    только указанные ключи (см. --list)
+  ./install.sh --list          показать каталог и выйти
+  ./install.sh --dry-run       показать команды, ничего не выполняя
+  -h | --help                  эта справка
+
+Флаги комбинируются: ./install.sh --skills --dry-run
+USAGE
+}
 
 # --- разбор аргументов ---------------------------------------------------------
 while [ $# -gt 0 ]; do
@@ -167,13 +215,26 @@ command -v git  >/dev/null 2>&1 || warn "git не найден — git-паки 
 [ "$DRY" = 1 ] && warn "DRY-RUN: команды только печатаются, ничего не выполняется"
 
 # --- основной цикл -------------------------------------------------------------
-fail=0
+selected=0
 while IFS='|' read -r key typ repo desc; do
   [ -z "$key" ] && continue
   want "$key" "$typ" || continue
-  install_one "$key" "$typ" "$repo" || fail=1
+  selected=$((selected+1))
+  install_one "$key" "$typ" "$repo"
 done <<< "$CATALOG"
 
+if [ "$selected" = 0 ]; then
+  warn "Ничего не выбрано. Подсказка: ./install.sh --all  или  --skills  (или --list)."
+  exit 0
+fi
+
+# --- сводка --------------------------------------------------------------------
 echo
-if [ "$fail" = 0 ]; then ok "Готово."; else warn "Завершено с предупреждениями — см. лог выше."; fi
-echo "Плагины Claude Code (superpowers, understand-anything) ставятся командами /plugin внутри сессии."
+info "Сводка:${SUMMARY}"
+echo
+printf '%s установлено: %d%s | %s ручных: %d%s | %s ошибок: %d%s\n' \
+  "$c_grn" "$N_OK" "$c_rst" "$c_yel" "$N_MANUAL" "$c_rst" "$c_yel" "$N_FAIL" "$c_rst"
+[ "$N_MANUAL" -gt 0 ] && echo "Плагины Claude Code ставятся командами /plugin внутри сессии (см. выше)."
+[ "$DRY" = 1 ] && warn "Это был DRY-RUN — реальная установка не выполнялась."
+[ "$N_FAIL" -gt 0 ] && exit 1
+exit 0

@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y shellcheck
+          shellcheck install.sh
+
+      - name: bash syntax
+        run: bash -n install.sh
+
+      - name: catalog renders
+        run: bash install.sh --list
+
+      - name: dry-run all (no network installs)
+        run: bash install.sh --all --dry-run
